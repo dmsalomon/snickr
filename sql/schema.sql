@@ -1,8 +1,8 @@
 
-create database if not exists snickr;
+create database snickr;
 use snickr
 
-create table if not exists user (
+create table user (
 	uname varchar(64) not null,
 	nickname varchar(64),
 	email varchar(255) not null,
@@ -11,14 +11,14 @@ create table if not exists user (
 	primary key(uname)
 );
 
-create table if not exists workspace (
+create table workspace (
 	wsname varchar(64) not null,
 	description text,
 	wscreated timestamp default current_timestamp,
 	primary key(wsname)
 );
 
-create table if not exists wsmember (
+create table wsmember (
 	wsname varchar(64) not null,
 	uname varchar(64) not null,
 	wsadded timestamp not null default current_timestamp,
@@ -28,7 +28,7 @@ create table if not exists wsmember (
 	foreign key(uname) references user(uname)
 );
 
-create table if not exists channel (
+create table channel (
 	wsname varchar(64) not null,
 	chname varchar(64) not null,
 	owner varchar(64) not null,
@@ -38,7 +38,7 @@ create table if not exists channel (
 	foreign key(wsname, owner) references wsmember(wsname, uname)
 );
 
-create table if not exists chmember (
+create table chmember (
 	wsname varchar(64) not null,
 	chname varchar(64) not null,
 	member varchar(64) not null,
@@ -48,7 +48,7 @@ create table if not exists chmember (
 	foreign key(wsname, member) references wsmember(wsname, uname)
 );
 
-create table if not exists invitation (
+create table invitation (
 	wsname varchar(64) not null,
 	chname varchar(64) not null,
 	invitee varchar(64) not null,
@@ -58,7 +58,7 @@ create table if not exists invitation (
 	foreign key(wsname, invitee) references wsmember(wsname, uname)
 );
 
-create table if not exists message (
+create table message (
 	msgid int unsigned auto_increment not null,
 	wsname varchar(64) not null,
 	chname varchar(64) not null,
