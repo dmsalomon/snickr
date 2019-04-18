@@ -10,7 +10,11 @@ from flask_bootstrap import __version__ as FLASK_BOOTSTRAP_VERSION
 from forms import LoginForm, RegistrationForm
 from nav import configure_nav
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder="../static/templates",
+    static_folder="../static/dist",
+)
 Bootstrap(app)
 
 try:
@@ -164,11 +168,7 @@ def registerAuth():
 
     return redirect(url_for('index'))
 
-@app.route('/<wsname>')
-@login_required
-def workspace(wsname):
-    uname = session['uname']
-
+def workspace_auth(uname, wsname):
     q = """
         select *
         from wsmember
@@ -180,11 +180,65 @@ def workspace(wsname):
         cursor.execute(q, (uname,wsname))
         data = cursor.fetchone()
 
-    if not data:
-        return "unauthorized"
+    return bool(data)
 
+@app.route('/<wsname>')
+@login_required
+def workspace(wsname):
+    uname = session['uname']
+
+    if not workspace_auth(uname, wsname):
+        return "unauthorized"
     return "authorized"
 
+def channel_auth(uname, wsname, chname):
+    if not workspace_auth(uname, wsname):
+        return False
+
+    q = """
+        select *
+        from chmember
+        where member = %s
+        and wsname = %s
+        and chname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (uname,wsname,chname))
+        data = cursor.fetchone()
+
+    return bool(data)
+
+@app.route('/<wsname>/<chname>')
+@login_required
+def channel(wsname, chname):
+    uname = session['uname']
+
+    if not channel_auth(uname, wsname, chname):
+        return "unauthorized"
+
+    q = """
+        select msgid, sender, content, posted
+        from message
+        where wsname = %s
+        and chname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (wsname, chname))
+        data = cursor.fetchall()
+
+    h = "<table>"
+    for row in data:
+        h += f"<tr>"
+        h += f"<td>{row['sender']}</td>"
+        h += f"<td>{row['content']}</td>"
+        h += f"<td>{row['posted']}</td>"
+        h += "</tr>"
+    h += "</table>"
+
+    return render_template('channel.html')
+    return f"<html><body>{h}</body></html>"
 
 @app.route('/logout')
 def logout():
