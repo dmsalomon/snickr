@@ -1,6 +1,4 @@
 
-import hashlib
-
 from flask import Flask
 from flask import flash, render_template, session, redirect, url_for
 
@@ -81,21 +79,21 @@ def is_authenticated():
 def loginAuth():
     form = LoginForm()
     if not form.validate_on_submit():
-        return render('login.html', form=form)
+        return render_template('login.html', form=form)
 
     uname = form.uname.data
     password = form.password.data
-    hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    # hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
 
     q = """
         select nickname, email
         from user
         where uname = %s
-        and password = %s
+        and password = sha2(%s, 256)
         """
 
     with conn.cursor() as cursor:
-        cursor.execute(q, (uname, hashed))
+        cursor.execute(q, (uname, password))
 
     data = cursor.fetchone()
 
@@ -112,23 +110,23 @@ def loginAuth():
 @app.route('/register', methods=('POST',))
 def registerAuth():
     form = RegistrationForm()
-    if not form.validate_on_submit()
+    if not form.validate_on_submit():
         return render_template('register.html', form=form)
 
     uname = form.uname.data
     email = form.email.data
     nick = form.nickname.data
     password = form.password.data
-    hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    # hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
 
     q = """
         insert into user(uname, nickname, email, password)
-        values (%s, %s, %s, %s)
+        values (%s, %s, %s, sha2(%s, 256))
         """
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(q, (uname, nick, email, hashed))
+            cursor.execute(q, (uname, nick, email, password))
             conn.commit()
     except pymysql.err.IntegrityError:
         error = f'Username {uname} is already taken. Try another.'
