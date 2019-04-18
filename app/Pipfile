@@ -8,8 +8,9 @@ verify_ssl = true
 [packages]
 flask = "*"
 flask-wtf = "*"
-pymsql = "*"
 pymysql = "*"
+flask-bootstrap = "*"
+flask-nav = "*"
 
 [requires]
 python_version = "3.7"

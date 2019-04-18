@@ -1,4 +1,6 @@
 
+from functools import wraps
+
 from flask import Flask
 from flask import flash, render_template, session, redirect, url_for
 
@@ -62,7 +64,27 @@ conn = pymysql.connect(host=app.config['DBHOST'],
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    if not is_authenticated():
+        return redirect(url_for('login'))
+
+    uname = session['uname']
+
+    q = """
+        select wsname
+        from wsmember
+        where uname = %s
+        """
+
+    ws = []
+    with conn.cursor() as cursor:
+        cursor.execute(q, (uname,))
+        for row in cursor.fetchall():
+            ws.append(row['wsname'])
+
+    if len(ws) == 1:
+        return redirect('/' + ws[0])
+
+    return "<br />".join(ws)
 
 @app.route('/login')
 def login():
@@ -74,6 +96,14 @@ def register():
 
 def is_authenticated():
     return 'uname' in session
+
+def login_required(f):
+    @wraps(f)
+    def dec(*a, **kw):
+        if not is_authenticated():
+            return redirect(url_for('login'))
+        return f(*a, **kw)
+    return dec
 
 @app.route('/login', methods=('POST',))
 def loginAuth():
@@ -94,8 +124,7 @@ def loginAuth():
 
     with conn.cursor() as cursor:
         cursor.execute(q, (uname, password))
-
-    data = cursor.fetchone()
+        data = cursor.fetchone()
 
     if(data):
         session['uname'] = uname
@@ -134,6 +163,27 @@ def registerAuth():
         return redirect(url_for('register'))
 
     return redirect(url_for('index'))
+
+@app.route('/<wsname>')
+@login_required
+def workspace(wsname):
+    uname = session['uname']
+
+    q = """
+        select *
+        from wsmember
+        where uname = %s
+        and wsname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (uname,wsname))
+        data = cursor.fetchone()
+
+    if not data:
+        return "unauthorized"
+
+    return "authorized"
 
 
 @app.route('/logout')
