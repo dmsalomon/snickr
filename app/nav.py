@@ -4,12 +4,10 @@ from flask_nav import Nav
 from flask_nav.elements import Navbar, View, Text
 from flask_bootstrap import __version__ as FLASK_BOOTSTRAP_VERSION
 
-from backend import is_authenticated
-
 def basebar():
     return Navbar(
         current_app.config.get('SITE_NAME'),
-        View('Home', 'frontend.index'),
+        View('Home', '.index'),
         Text(f'Using Flask-Bootstrap {FLASK_BOOTSTRAP_VERSION}'),
     )
 
@@ -18,7 +16,7 @@ def ctxbar():
 
     if not is_authenticated():
         bar.insert(1,
-            View('Login', 'backend.login'),
+            View('Login', '.login'),
         )
     else:
         bar.insert(1,
