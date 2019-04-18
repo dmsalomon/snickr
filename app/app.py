@@ -112,31 +112,31 @@ def loginAuth():
 @app.route('/register', methods=('POST',))
 def registerAuth():
     form = RegistrationForm()
-    if form.validate_on_submit():
-        uname = form.uname.data
-        email = form.email.data
-        nick = form.nickname.data
-        password = form.password.data
-        hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    if not form.validate_on_submit()
+        return render_template('register.html', form=form)
 
-        q = """
-            insert into user(uname, nickname, email, password)
-            values (%s, %s, %s, %s)
-            """
+    uname = form.uname.data
+    email = form.email.data
+    nick = form.nickname.data
+    password = form.password.data
+    hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute(q, (uname, nick, email, hashed))
-                conn.commit()
-        except pymysql.err.IntegrityError:
-            error = f'Username {uname} is already taken. Try another.'
-            flash(error, "danger")
-            return redirect(url_for('register'))
+    q = """
+        insert into user(uname, nickname, email, password)
+        values (%s, %s, %s, %s)
+        """
 
-        return redirect(url_for('index'))
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(q, (uname, nick, email, hashed))
+            conn.commit()
+    except pymysql.err.IntegrityError:
+        error = f'Username {uname} is already taken. Try another.'
+        flash(error, "danger")
+        return redirect(url_for('register'))
 
-    # form error
-    return render_template('register.html', form=form)
+    return redirect(url_for('index'))
+
 
 @app.route('/logout')
 def logout():
