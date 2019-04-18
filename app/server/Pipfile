@@ -11,6 +11,7 @@ flask-wtf = "*"
 pymysql = "*"
 flask-bootstrap = "*"
 flask-nav = "*"
+flask-cors = "*"
 
 [requires]
 python_version = "3.7"

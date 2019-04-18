@@ -2,69 +2,53 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 class App extends React.Component {
-    constructor(props) { super(props);
+    constructor(props) {
+        super(props);
         this.state = {
-            a: '',
-            b: '',
-            res: 'no result',
+            messages: 'have no messages',
+            reloads: 0
         };
 
-        this.change = this.change.bind(this);
-        this.submit = this.submit.bind(this);
+        this.reload.bind(this);
     }
 
-    change(event) {
-        const target = event.target;
-        const name = target.name;
-        const value = target.value;
+    componentDidMount() {
+        this.interval = setInterval(
+            () => this.reload(),
+            5000
+        );
+        this.reload();
+    }
 
+    componentWillUnmount() {
+        clearInterval(this.interval);
+    }
+
+    reload() {
         this.setState({
-            [name]: value
+            reloads: this.state.reloads+1
         });
-    }
-
-    submit(event) {
-        const a = this.state.a;
-        const b = this.state.b;
-        const url = `http://localhost:3000/add?a=${a}&b=${b}`
+        const url = window.location.href + '/0';
+        console.log(url);
         fetch(url)
             .then(res => res.json())
             .then(
                 (json) => {
                     this.setState({
-                        res: json.res,
+                        messages: json.messages
                     });
                 },
                 (error) => {
                     this.setState({
-                        res: 'api error',
+                        messages: 'could not get messages'
                     });
                 }
-            )
-        event.preventDefault();
+            );
     }
 
     render() {
         return (
-            <form>
-                    My Flask App <br />
-                <input
-                    type="text"
-                    name="a"
-                    value={this.state.a}
-                    onChange={this.change}
-                />
-                <input
-                    type="text"
-                    name="b"
-                    value={this.state.b}
-                    onChange={this.change}
-                />
-                <button onClick={this.submit}>
-                    Submit
-                </button> <br/>
-                <textarea value={this.state.res} />
-            </form>
+            <p>{JSON.stringify(this.state.messages)}</p>
         );
     }
 }

@@ -2,10 +2,11 @@
 from functools import wraps
 
 from flask import Flask
-from flask import flash, render_template, session, redirect, url_for
+from flask import flash, render_template, session, redirect, url_for, jsonify
 
 from flask_bootstrap import Bootstrap
 from flask_bootstrap import __version__ as FLASK_BOOTSTRAP_VERSION
+from flask_cors import CORS
 
 from forms import LoginForm, RegistrationForm
 from nav import configure_nav
@@ -16,6 +17,7 @@ app = Flask(
     static_folder="../static/dist",
 )
 Bootstrap(app)
+CORS(app)
 
 try:
     app.config.from_object('config')
@@ -240,7 +242,34 @@ def channel(wsname, chname):
     return render_template('channel.html')
     return f"<html><body>{h}</body></html>"
 
+@app.route('/<wsname>/<chname>/<int:page>')
+@login_required
+def messages(wsname, chname, page):
+    uname = session['uname']
+
+    if not channel_auth(uname, wsname, chname):
+        return "unauthorized"
+
+    q = """
+        select msgid, sender, content, posted
+        from message
+        where wsname = %s
+        and chname = %s
+        limit %s, %s
+        """
+
+    per = 20
+    offset = page * per
+
+    with conn.cursor() as cursor:
+        conn.commit()
+        cursor.execute(q, (wsname, chname, offset, per))
+        data = cursor.fetchall()
+
+    return jsonify(messages=data)
+
 @app.route('/logout')
+@login_required
 def logout():
     session.pop('uname')
     return redirect(url_for('index'))
