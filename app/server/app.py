@@ -13,6 +13,7 @@ from forms import LoginForm, RegistrationForm
 from nav import configure_nav
 
 import json
+import random
 
 app = Flask(
     __name__,
@@ -34,32 +35,33 @@ socket = SocketIO(app)
 
 from flask import current_app
 from flask_nav import Nav
-from flask_nav.elements import Navbar, View, Text
-
-def basebar():
-    return Navbar(
-        current_app.config.get('SITE_NAME'),
-        View('Home', 'index'),
-        Text(f'Using Flask-Bootstrap {FLASK_BOOTSTRAP_VERSION}'),
-    )
+from flask_nav.elements import Navbar, View, Text, Link, Subgroup
 
 def ctxbar():
-    bar = list(basebar().items)
+    bar = []
 
     if not is_authenticated():
-        bar.insert(1,
-            View('Login', 'login'),
-        )
+        bar.append(View('Login', 'login'))
     else:
-        bar.insert(1,
-            View('Logout', 'logout'),
-        )
+        uname = session['uname']
+        links = []
+        for w in workspaces(uname):
+            links.append(Link(w, f'/{w}'))
+        bar.append(Subgroup(, *links))
+
+        if 'wsname' in session:
+            links = []
+            wsname = session['wsname']
+            for c in channels(uname, wsname):
+                links.append(Link(c, f'/{wsname}/{c}'))
+            bar.append(Subgroup(w, *links))
+
+        bar.append(View('Logout', 'logout'))
 
     return Navbar(current_app.config.get('SITE_NAME'), *bar)
 
 def configure_nav(app):
     nav = Nav()
-    nav.register_element('base', basebar)
     nav.register_element('ctx', ctxbar)
     nav.init_app(app)
 
@@ -83,27 +85,44 @@ def login_required(f):
         return f(*a, **kw)
     return dec
 
-@app.route('/')
-@login_required
-def index():
-    uname = session['uname']
-
+def workspaces(uname):
     q = """
         select wsname
         from wsmember
         where uname = %s
         """
 
-    ws = []
     with conn.cursor() as cursor:
         cursor.execute(q, (uname,))
         for row in cursor.fetchall():
-            ws.append(row['wsname'])
+            yield row['wsname']
 
-    if len(ws) == 1:
-        return redirect('/' + ws[0])
 
-    return "<br />".join(ws)
+def channels(uname, wsname):
+    q = """
+        select chname
+        from chmember
+        where member = %s
+        and wsname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (uname, wsname,))
+        for row in cursor.fetchall():
+            yield row['chname']
+
+@app.route('/')
+@login_required
+def index():
+    uname = session['uname']
+    ws = list(workspaces(uname))
+
+    if len(ws) == 0:
+        return "no workspaces"
+
+    ws = random.choice(ws)
+
+    return redirect('/' + ws)
 
 @app.route('/login')
 def login():
@@ -193,7 +212,16 @@ def workspace(wsname):
 
     if not workspace_auth(uname, wsname):
         return "unauthorized"
-    return "authorized"
+
+    session['wsname'] = wsname
+
+    cs = list(channels(uname, wsname))
+
+    if len(cs) == 0:
+        return "you are in no channels"
+
+    c = random.choice(cs)
+    return redirect(f'/{wsname}/{c}')
 
 def channel_auth(uname, wsname, chname):
     q = """
@@ -218,6 +246,9 @@ def channel(wsname, chname):
 
     if not channel_auth(uname, wsname, chname):
         return "unauthorized"
+
+    session['wsname'] = wsname
+    session['chname'] = chname
 
     q = """
         select msgid, sender, content, posted
