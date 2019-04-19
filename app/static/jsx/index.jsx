@@ -1,54 +1,104 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import io from 'socket.io-client';
+import Cookies from 'universal-cookie';
+
+const cookies = new Cookies();
 
 class App extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            messages: 'have no messages',
-            reloads: 0
+            messages: [],
+            txtinput: '',
+            uname: cookies.get('uname'),
+            wsname: cookies.get('wsname'),
+            chname: cookies.get('chname'),
         };
 
-        this.reload.bind(this);
+        this.post = this.post.bind(this);
+        this.inputChange = this.inputChange.bind(this);
+    }
+
+    newMsg(m) {
+        this.setState({
+            messages: this.state.messages.concat(m)
+        });
     }
 
     componentDidMount() {
-        this.interval = setInterval(
-            () => this.reload(),
-            5000
-        );
-        this.reload();
+        const socket = io('http://127.0.0.1:5000');
+        this.setState({
+            socket: socket
+        });
+
+        const wsname = this.state.wsname;
+        const chname = this.state.chname;
+
+        socket.emit('join', wsname+':'+chname);
+
+        socket.emit('get msg', wsname, chname, 0, (data) => {
+            this.newMsg(data);
+        });
+
+        socket.on('new msg', (msg) => {
+            console.log(msg);
+            this.newMsg(msg);
+        });
     }
 
     componentWillUnmount() {
-        clearInterval(this.interval);
+        const socket = this.state.socket;
+        const wsname = this.state.wsname;
+        const chname = this.state.chname;
+
+        socket.emit('leave', wsname+':'+chname);
+        this.state.socket.close();
     }
 
-    reload() {
+    post(event) {
+        event.preventDefault();
+
+        if (this.state.txtinput.length == 0) {
+            return;
+        }
+
+        const m = {
+            'sender': this.state.uname,
+            'content': this.state.txtinput,
+            'wsname': this.state.wsname,
+            'chname': this.state.chname
+        };
+
+        console.log(m);
+
+        const socket = this.state.socket;
+
+        socket.emit('post msg', m);
+
         this.setState({
-            reloads: this.state.reloads+1
+            txtinput: ''
         });
-        const url = window.location.href + '/0';
-        console.log(url);
-        fetch(url)
-            .then(res => res.json())
-            .then(
-                (json) => {
-                    this.setState({
-                        messages: json.messages
-                    });
-                },
-                (error) => {
-                    this.setState({
-                        messages: 'could not get messages'
-                    });
-                }
-            );
+    }
+
+    inputChange(event) {
+        this.setState({txtinput: event.target.value});
     }
 
     render() {
+        const messages = this.state.messages;
+
+        const list = messages.map((m) => <li key={m.msgid}>{m.sender}: {m.content}</li>);
+
         return (
-            <p>{JSON.stringify(this.state.messages)}</p>
+            <div>
+                {this.state.uname}
+                <form onSubmit={this.post}>
+                    <input onChange={this.inputChange} className="form-control" value={this.state.txtinput}/>
+                    <button className="btn">Send</button>
+                </form>
+                {list}
+            </div>
         );
     }
 }

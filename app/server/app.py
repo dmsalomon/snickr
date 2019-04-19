@@ -2,22 +2,23 @@
 from functools import wraps
 
 from flask import Flask
-from flask import flash, render_template, session, redirect, url_for, jsonify
+from flask import flash, render_template, session, redirect, url_for, jsonify, request, make_response
 
 from flask_bootstrap import Bootstrap
 from flask_bootstrap import __version__ as FLASK_BOOTSTRAP_VERSION
 from flask_cors import CORS
+from flask_socketio import SocketIO, send, emit, disconnect, join_room, leave_room
 
 from forms import LoginForm, RegistrationForm
 from nav import configure_nav
+
+import json
 
 app = Flask(
     __name__,
     template_folder="../static/templates",
     static_folder="../static/dist",
 )
-Bootstrap(app)
-CORS(app)
 
 try:
     app.config.from_object('config')
@@ -27,6 +28,9 @@ except:
     )
 
 app.jinja_env.auto_reload = True
+Bootstrap(app)
+CORS(app)
+socket = SocketIO(app)
 
 from flask import current_app
 from flask_nav import Nav
@@ -68,11 +72,20 @@ conn = pymysql.connect(host=app.config['DBHOST'],
                        db=app.config['DBNAME'],
                        cursorclass=pymysql.cursors.DictCursor)
 
-@app.route('/')
-def index():
-    if not is_authenticated():
-        return redirect(url_for('login'))
+def is_authenticated():
+    return 'uname' in session
 
+def login_required(f):
+    @wraps(f)
+    def dec(*a, **kw):
+        if not is_authenticated():
+            return redirect(url_for('login'))
+        return f(*a, **kw)
+    return dec
+
+@app.route('/')
+@login_required
+def index():
     uname = session['uname']
 
     q = """
@@ -100,17 +113,6 @@ def login():
 def register():
     return render_template('register.html', form=RegistrationForm())
 
-def is_authenticated():
-    return 'uname' in session
-
-def login_required(f):
-    @wraps(f)
-    def dec(*a, **kw):
-        if not is_authenticated():
-            return redirect(url_for('login'))
-        return f(*a, **kw)
-    return dec
-
 @app.route('/login', methods=('POST',))
 def loginAuth():
     form = LoginForm()
@@ -132,7 +134,7 @@ def loginAuth():
         cursor.execute(q, (uname, password))
         data = cursor.fetchone()
 
-    if(data):
+    if data:
         session['uname'] = uname
         session['nickname'] = data['nickname']
         session['email'] = data['email']
@@ -194,9 +196,6 @@ def workspace(wsname):
     return "authorized"
 
 def channel_auth(uname, wsname, chname):
-    if not workspace_auth(uname, wsname):
-        return False
-
     q = """
         select *
         from chmember
@@ -215,6 +214,7 @@ def channel_auth(uname, wsname, chname):
 @login_required
 def channel(wsname, chname):
     uname = session['uname']
+    print('logged in:', uname)
 
     if not channel_auth(uname, wsname, chname):
         return "unauthorized"
@@ -230,31 +230,50 @@ def channel(wsname, chname):
         cursor.execute(q, (wsname, chname))
         data = cursor.fetchall()
 
-    h = "<table>"
-    for row in data:
-        h += f"<tr>"
-        h += f"<td>{row['sender']}</td>"
-        h += f"<td>{row['content']}</td>"
-        h += f"<td>{row['posted']}</td>"
-        h += "</tr>"
-    h += "</table>"
+    resp = make_response(render_template('channel.html'))
+    resp.set_cookie('uname', uname)
+    resp.set_cookie('wsname', wsname)
+    resp.set_cookie('chname', chname)
+    return resp
 
-    return render_template('channel.html')
-    return f"<html><body>{h}</body></html>"
-
-@app.route('/<wsname>/<chname>/<int:page>')
+@app.route('/logout')
 @login_required
-def messages(wsname, chname, page):
-    uname = session['uname']
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 
-    if not channel_auth(uname, wsname, chname):
-        return "unauthorized"
+def socket_login_required(f):
+    @wraps(f)
+    def dec(*a, **kw):
+        if not is_authenticated():
+            disconnect()
+        return f(*a, **kw)
+    return dec
 
+@socket.on('connect')
+def on_connection():
+    pass
+
+@socket.on('join')
+def on_join(room):
+    join_room(room)
+
+@socket.on('leave')
+def on_leave(room):
+    leave_room(room)
+
+@socket.on('disconnect')
+def on_disconnect():
+    print('disconnect')
+
+@socket.on('get msg')
+def get_msg(wsname, chname, page):
     q = """
         select msgid, sender, content, posted
         from message
         where wsname = %s
         and chname = %s
+        order by posted
         limit %s, %s
         """
 
@@ -266,13 +285,51 @@ def messages(wsname, chname, page):
         cursor.execute(q, (wsname, chname, offset, per))
         data = cursor.fetchall()
 
-    return jsonify(messages=data)
+    return jsonify(data).get_json()
 
-@app.route('/logout')
-@login_required
-def logout():
-    session.pop('uname')
-    return redirect(url_for('index'))
+@socket.on('post msg')
+def post_msg(msg):
+    uname = msg['sender']
+    wsname = msg['wsname']
+    chname = msg['chname']
+    content = msg['content']
+
+    q = """
+        insert into message(wsname, chname, sender, content)
+        values (%s, %s, %s, %s)
+        """
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(q, (wsname, chname, uname, content))
+            conn.commit()
+    except pymysql.err.IntegrityError:
+        return "error"
+
+    q = """
+        select last_insert_id() as id
+        """
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(q)
+            data = cursor.fetchone()
+    except:
+        return "error"
+
+    msg['msgid'] = data['id']
+
+    room = f'{wsname}:{chname}'
+    emit('new msg', jsonify(msg).get_json(), room=room)
+
+@app.route('/this')
+def this():
+    socket.emit('new msg', jsonify({
+        "content": "new message",
+        "sender": "webapp",
+        "msgid": 100,
+    }).get_json())
+    return "f"
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    socket.run(app, debug=True)
