@@ -10,6 +10,7 @@ insert into user(uname, nickname, email, password) values
 ('har', 'Harriet', 'har@nyu.edu', 'password'),
 ('sam', 'Samantha', 'sam@nyu.edu', 'password'),
 ('dorothy', 'Dorothy', 'dorothy@nyu.edu', 'password'),
+('jen', 'Jennifer', 'jen@nyu.edu', 'password'),
 ('trisha', 'Trish', 'trish@nyu.edu', 'password');
 
 insert into workspace(wsname, description) values

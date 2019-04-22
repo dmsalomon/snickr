@@ -38,7 +38,7 @@ and chname = 'general'
 order by posted;
 
 -- (6)
-select msgid, content
+select msgid, content, wsname, chname
 from message
 where sender = 'george';
 

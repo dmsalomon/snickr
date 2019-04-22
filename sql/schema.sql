@@ -7,14 +7,14 @@ create table user (
 	nickname varchar(64),
 	email varchar(255) not null,
 	password varchar(255) not null,
-	ucreated timestamp default current_timestamp,
+	ucreated timestamp not null default current_timestamp,
 	primary key(uname)
 );
 
 create table workspace (
 	wsname varchar(64) not null,
 	description text,
-	wscreated timestamp default current_timestamp,
+	wscreated timestamp not null default current_timestamp,
 	primary key(wsname)
 );
 
@@ -68,5 +68,3 @@ create table message (
 	primary key(msgid),
 	foreign key(wsname, chname, sender) references chmember(wsname, chname, member)
 );
-
--- vim: ft=sql:et:ts=2:sts=2:sw=2
