@@ -1,0 +1,36 @@
+{%- extends "base.html" %}
+{% import "bootstrap/utils.html" as utils %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block content %}
+  <div class="container col-sm-offset-3 col-sm-6">
+    <div class="well form-well">
+      <form action="/login" method="POST">
+        {{ form.csrf_token() }}
+        <d1>
+          {{ wtf.form_field(form.uname, class="form-control") }}
+          {{ wtf.form_field(form.password, class="form-control") }}
+        </d1>
+        <button type="submit" class="btn btn-block btn-primary">
+          Login
+        </button>
+      </form>
+      <h3 class="text-center">
+        <small>
+          New to Snickr?
+          <a href="/register">
+            Register
+          </a>
+        </small>
+      </h3>
+    </div>
+      {% with messages = get_flashed_messages(with_categories=True) %}
+        {% for c, e in messages %}
+          <div class="alert alert-{{c}} fade in">
+            <a href='#' class="close" data-dismiss="alert" aria-label="close">&times;</a>
+            <strong>Error:</strong> {{e}}
+          </div>
+        {% endfor %}
+      {% endwith %}
+  </div>
+{%- endblock %}
