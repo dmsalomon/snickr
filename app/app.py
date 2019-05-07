@@ -17,8 +17,8 @@ import random
 
 app = Flask(
     __name__,
-    template_folder="../static/templates",
-    static_folder="../static/dist",
+    template_folder="static/templates",
+    static_folder="static/dist",
 )
 
 try:
@@ -47,7 +47,7 @@ def ctxbar():
         links = []
         for w in workspaces(uname):
             links.append(Link(w, f'/{w}'))
-        bar.append(Subgroup(, *links))
+        bar.append(Subgroup('Workspaces', *links))
 
         if 'wsname' in session:
             links = []
