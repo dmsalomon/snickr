@@ -4,14 +4,14 @@ source schema.sql;
 use snickr;
 
 insert into user(uname, nickname, email, password) values
-('george', 'George', 'george@nyu.edu', 'password'),
-('john', 'John', 'john@nyu.edu', 'password'),
-('james', 'James', 'james@nyu.edu', 'password'),
-('har', 'Harriet', 'har@nyu.edu', 'password'),
-('sam', 'Samantha', 'sam@nyu.edu', 'password'),
-('dorothy', 'Dorothy', 'dorothy@nyu.edu', 'password'),
-('jen', 'Jennifer', 'jen@nyu.edu', 'password'),
-('trisha', 'Trish', 'trish@nyu.edu', 'password');
+('george', 'George', 'george@nyu.edu', sha2('password', 256)),
+('john', 'John', 'john@nyu.edu', sha2('password', 256)),
+('james', 'James', 'james@nyu.edu', sha2('password', 256)),
+('har', 'Harriet', 'har@nyu.edu', sha2('password', 256)),
+('sam', 'Samantha', 'sam@nyu.edu', sha2('password', 256)),
+('dorothy', 'Dorothy', 'dorothy@nyu.edu', sha2('password', 256)),
+('jen', 'Jennifer', 'jen@nyu.edu', sha2('password', 256)),
+('trisha', 'Trish', 'trish@nyu.edu', sha2('password', 256));
 
 insert into workspace(wsname, description) values
 ('job', 'Work'),

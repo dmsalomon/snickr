@@ -24,8 +24,8 @@ create table wsmember (
 	wsadded timestamp not null default current_timestamp,
 	admin boolean not null default false,
 	primary key(wsname, uname),
-	foreign key(wsname) references workspace(wsname),
-	foreign key(uname) references user(uname)
+	foreign key(wsname) references workspace(wsname) on delete cascade,
+	foreign key(uname) references user(uname) on delete cascade
 );
 
 create table channel (
@@ -35,7 +35,7 @@ create table channel (
 	chtype enum ('public', 'private', 'direct') not null,
 	chcreated timestamp not null default current_timestamp,
 	primary key(wsname, chname),
-	foreign key(wsname, owner) references wsmember(wsname, uname)
+	foreign key(wsname, owner) references wsmember(wsname, uname) on delete cascade
 );
 
 create table chmember (
@@ -44,8 +44,8 @@ create table chmember (
 	member varchar(64) not null,
 	chadded timestamp not null default current_timestamp,
 	primary key(wsname, chname, member),
-	foreign key(wsname, chname) references channel(wsname, chname),
-	foreign key(wsname, member) references wsmember(wsname, uname)
+	foreign key(wsname, chname) references channel(wsname, chname) on delete cascade,
+	foreign key(wsname, member) references wsmember(wsname, uname) on delete cascade
 );
 
 create table invitation (
@@ -54,8 +54,8 @@ create table invitation (
 	invitee varchar(64) not null,
 	invited timestamp not null default current_timestamp,
 	primary key(wsname, chname, invitee),
-	foreign key(wsname, chname) references channel(wsname, chname),
-	foreign key(wsname, invitee) references wsmember(wsname, uname)
+	foreign key(wsname, chname) references channel(wsname, chname) on delete cascade,
+	foreign key(wsname, invitee) references wsmember(wsname, uname) on delete cascade
 );
 
 create table message (
@@ -66,5 +66,5 @@ create table message (
 	content text not null,
 	posted timestamp not null default current_timestamp,
 	primary key(msgid),
-	foreign key(wsname, chname, sender) references chmember(wsname, chname, member)
+	foreign key(wsname, chname, sender) references chmember(wsname, chname, member) on delete cascade
 );
