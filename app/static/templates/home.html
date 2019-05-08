@@ -1,0 +1,90 @@
+
+{%- extends "base.html" %}
+{% import "bootstrap/utils.html" as utils %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Home
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+<style>
+.ws-item {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  margin-left: 5%;
+  /*border: 1px solid red;*/
+  /*padding: 3px 0;*/
+}
+dl {
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+dt {
+  float: left;
+  width: 20%;
+  padding: 0;
+  margin: 3px 0;
+}
+dd {
+  float: left;
+  width: 80%;
+  padding: 0;
+  margin: 3px 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+  <div class="col-sm-offset-3 col-sm-6">
+    <div class="page-header">
+      <h1>Workspaces</h1>
+    </div>
+    {% if wsx %}
+      <dl>
+    {% else %}
+      You are not in any workspace
+    {% endif %}
+    {% for ws in wsx %}
+      <dt>
+        <a href="/{{ws['wsname']}}">
+          {{ws['wsname']}}
+        </a>
+      </dt>
+      <dd>
+        <span class="text-muted">
+          {{ws['description']}}
+        </span>
+      </dd>
+    {% endfor %}
+    {% if wsx %}
+      </dl>
+    {% endif %}
+    <hr>
+    <form action="/" method="POST">
+      {{form.csrf_token()}}
+      <d1>
+        {{wtf.form_field(form.wsname, class="form-control")}}
+        {{wtf.form_field(form.description, class="form-control")}}
+      </d1>
+      <button type="submit" class="btn btn-block btn-primary">
+        Create
+      </button>
+    </form>
+    {% with messages = get_flashed_messages(with_categories=True) %}
+      {% if messages %}
+        <hr>
+      {% endif %}
+      {% for c, e in messages %}
+        {{e}}
+      {% endfor %}
+    {% endwith %}
+  </div>
+</div>
+
+{%- endblock %}

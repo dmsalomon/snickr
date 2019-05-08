@@ -1,0 +1,43 @@
+
+{%- extends "base.html" %}
+{% import "bootstrap/utils.html" as utils %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Admin
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+<style>
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+  <div class="col-sm-offset-3 col-sm-6">
+    <div class="page-header">
+      <h3>
+        Add Member to Workspace
+      </h3>
+    </div>
+    <div class="well form-well">
+      {{wtf.quick_form(form)}}
+    </div>
+    {% with messages = get_flashed_messages(with_categories=True) %}
+      {% for c, e in messages %}
+        <div class="alert alert-{{c}} fade in">
+          <a href='#' class="close" data-dismiss="alert" aria-label="close">&times;</a>
+          {% if c == "danger" %}
+            <strong>Error:</strong> {{e}}
+          {% else %}
+            {{e}}
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+</div>
+
+{%- endblock %}
