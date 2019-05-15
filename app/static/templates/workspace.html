@@ -83,14 +83,39 @@ dd {
       </button>
     </form>
     {% with messages = get_flashed_messages(with_categories=True) %}
-      {% if messages %}
-        <hr>
-      {% endif %}
       {% for c, e in messages %}
-        {{e}}
+        <div class="alert alert-{{c}} fade in">
+          <a href='#' class="close" data-dismiss="alert" aria-label="close">&times;</a>
+          {% if c == "danger" %}
+            <span class="glyphicon glyphicon-exclamation-sign">
+            </span>
+          {% else %}
+            <span class="glyphicon glyphicon-ok-sign"></span>
+          {% endif %}
+          {{e}}
+        </div>
       {% endfor %}
     {% endwith %}
+    <hr>
+    {% for u in us %}
+      <div class="ch-item">
+        {% if u['admin'] %}
+          <span class="glyphicon glyphicon-king"></span>
+        {% else %}
+          <span class="glyphicon glyphicon-pawn"></span>
+        {% endif %}
+        <a href="/{{ws}}/direct/{{u['uname']}}">
+          {{u['uname']}}
+        </a>
+      </div>
+    {% endfor %}
+    {% if u['admin'] %}
+      <hr>
+      <a href="/{{ws}}/invite">
+        invite users
+      </a>
+    {% endif %}
   </div>
 </div>
 
-{%- endblock %}
+{% endblock %}

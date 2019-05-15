@@ -48,7 +48,18 @@ create table chmember (
 	foreign key(wsname, member) references wsmember(wsname, uname) on delete cascade
 );
 
-create table invitation (
+create table wsinvitation (
+	wsname varchar(64) not null,
+	invitee varchar(64) not null,
+	inviter varchar(64) not null,
+	invited timestamp not null default current_timestamp,
+	primary key(wsname, invitee),
+	foreign key(wsname) references workspace(wsname) on delete cascade,
+	foreign key(invitee) references user(uname) on delete cascade,
+	foreign key(wsname, inviter) references wsmember(wsname, uname) on delete cascade
+);
+
+create table chinvitation (
 	wsname varchar(64) not null,
 	chname varchar(64) not null,
 	invitee varchar(64) not null,

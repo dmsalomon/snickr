@@ -56,7 +56,7 @@ insert into chmember(wsname, chname, member) values
 ('baseball', 'pitchers', 'har'),
 ('baseball', 'pitchers', 'trisha');
 
-insert into invitation(wsname, chname, invitee, invited) values
+insert into chinvitation(wsname, chname, invitee, invited) values
 ('baseball', 'pitchers', 'george', timestamp('2019-03-01')),
 ('baseball', 'general', 'dorothy', timestamp('2019-02-01')),
 ('job', 'managers', 'john', current_timestamp());

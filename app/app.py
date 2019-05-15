@@ -102,15 +102,25 @@ def workspaces(uname):
         return cursor.fetchall()
 
 def channels(uname, wsname):
+    # get all public channels in the workspace
+    # as well as private channels that this
+    # user is a member of
     q = """
-        select *
-        from chmember natural join channel
-        where member = %s
-        and wsname = %s
-        """
+        select distinct
+        C.wsname, C.chname, C.owner, C.chtype, C.chcreated
+        from chmember M, channel C
+        where C.wsname = %s and (
+            C.chtype = 'public' or (
+                M.wsname = C.wsname and
+                M.chname = C.chname and
+                M.member = %s and
+                C.chtype = 'private'
+            )
+        )
+    """
 
     with conn.cursor() as cursor:
-        cursor.execute(q, (uname, wsname,))
+        cursor.execute(q, (wsname,uname))
         return cursor.fetchall()
 
 @app.route('/', methods=('GET', 'POST'))
@@ -123,7 +133,7 @@ def index():
     if request.method == 'GET' or not form.validate_on_submit():
         return render_template('home.html', wsx=wsx, form=form)
 
-    wsname = form.workspace.data
+    wsname = form.wsname.data
     desc = form.description.data
 
     q1 = """
@@ -217,20 +227,10 @@ def registerAuth():
     return redirect(url_for('index'))
 
 def workspace_auth(uname, wsname):
-    q = """
-        select *
-        from wsmember
-        where uname = %s
-        and wsname = %s
-        """
-
-    with conn.cursor() as cursor:
-        cursor.execute(q, (uname,wsname))
-        data = cursor.fetchone()
 
     return bool(data)
 
-@app.route('/chmember', methods=('GET', 'POST'))
+@app.route('/<channel>/invite', methods=('GET', 'POST'))
 @login_required
 def chmember():
     form = ChannelUserForm()
@@ -338,115 +338,103 @@ def chmember():
     flash(*msg)
     return redirect(url_for('chmember'))
 
-@app.route('/wsmember', methods=('GET', 'POST'))
+@app.route('/<wsname>/invite', methods=('GET', 'POST'))
 @login_required
-def wsmember():
-    form = WorkspaceUserForm()
-
-    if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('wsmember.html', form=form)
-
+def wsinvite(wsname):
     uname = session['uname']
-
-    wsname = form.wsname.data
-    user = form.uname.data
-    admin = form.admin.data
+    form = WorkspaceInviteForm()
 
     q = """
-        select *
+        select admin
         from wsmember
         where wsname = %s
         and uname = %s
-        and admin
         """
 
     with conn.cursor() as cursor:
         cursor.execute(q, (wsname, uname))
         data = cursor.fetchone()
+        if not data or not data['admin']:
+            return "unauthorized"
 
-    if not data:
-        err = f"You are not an admin of {wsname}"
-        flash(err, "danger")
-        return redirect(url_for('wsmember'))
+    if request.method == 'GET' or not form.validate_on_submit():
+        return render_template('wsinvite.html', ws=wsname, form=form)
 
-    q = """
-        select *
-        from user
-        where uname = %s
-        """
+    invitee = form.uname.data
 
-    with conn.cursor() as cursor:
-        cursor.execute(q, (user))
-        data = cursor.fetchone()
-
-    if not data:
-        err = f"No such user {user}"
-        flash(err, "danger")
-        return redirect(url_for('wsmember'))
-
-    q = """
+    q1 = """
         select *
         from wsmember
-        where uname = %s
-        and wsname = %s
+        where wsname = %s
+        and uname = %s
         """
 
-    with conn.cursor() as cursor:
-        cursor.execute(q, (user, wsname))
-        data = cursor.fetchone()
+    q2 = """
+        insert into wsinvitation(wsname, invitee, inviter)
+        values (%s, %s, %s)
+        """
 
-    if data and admin == bool(data['admin']):
-        err = f"User {user} is already a member of {wsname}"
-        flash(err, "warning")
-        return redirect(url_for('wsmember'))
-
-    if not data:
-        q = """
-            insert into wsmember (admin, wsname, uname)
-            values (%s, %s, %s)
-            """
-        update = False
-    elif admin:
-        q = """
-            update wsmember
-            set admin = %s
-            where wsname = %s
-            and uname = %s
-            """
-        update = True
+    err = None
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(q, (admin, wsname, user))
+            cursor.execute(q1, (wsname, invitee))
+            if cursor.fetchone():
+                err = f'{invitee} is already a member of {wsname}'
+                raise Exception
+            cursor.execute(q2, (wsname, invitee, uname))
             conn.commit()
-            msg = f"{user} added to {wsname}!", "success"
-            if update:
-                msg = f"{user} made admin of {wsname}!", "success"
+        flash("nice!!", "success")
     except:
-        msg = f"Could not add {user} to {wsname}", "danger"
         conn.rollback()
+        err = err or f'could not invitee {invitee} to {wsname}'
+        flash(err, "danger")
 
-    flash(*msg)
-    return redirect(url_for('wsmember'))
+    return redirect('/' + wsname + '/invite')
 
 @app.route('/<wsname>', methods=('GET', 'POST'))
 @login_required
 def workspace(wsname):
     uname = session['uname']
 
-    if not workspace_auth(uname, wsname):
+    q = """
+        select admin
+        from wsmember
+        where uname = %s
+        and wsname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (uname,wsname))
+        data = cursor.fetchone()
+
+    if not data:
         return "unauthorized"
 
     session['wsname'] = wsname
+    session['admin'] = data['admin']
 
     cs = channels(uname, wsname)
+
+    q = """
+        select uname, admin
+        from wsmember
+        where wsname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (wsname))
+        ux = cursor.fetchall()
+
     form = ChannelForm()
 
     if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('workspace.html', cs=cs, u=session, form=form)
+        return render_template('workspace.html', cs=cs, us=ux, u=session, form=form)
 
     chname = form.chname.data
     chtype = form.chtype.data
+
+    print("probe")
 
     q1 = """
         insert into channel(wsname, chname, owner, chtype)
@@ -471,19 +459,41 @@ def workspace(wsname):
     return redirect('/' + wsname)
 
 def channel_auth(uname, wsname, chname):
-    q = """
+    q1 = """
         select *
         from chmember
-        where member = %s
-        and wsname = %s
+        where wsname = %s
+        and chname = %s
+        and member = %s
+        """
+
+    q2 = """
+        select chtype
+        from channel
+        where wsname = %s
         and chname = %s
         """
 
-    with conn.cursor() as cursor:
-        cursor.execute(q, (uname,wsname,chname))
-        data = cursor.fetchone()
+    q3 = """
+        insert into chmember(wsname, chname, member)
+        values (%s, %s, %s)
+        """
 
-    return bool(data)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(q1, (wsname,chname,uname))
+            if cursor.fetchone():
+                return True
+            cursor.execute(q2, (wsname,chname))
+            data = cursor.fetchone()
+            if data and data['chtype'] == 'public':
+                cursor.execute(q3, (wsname,chname,uname))
+                conn.commit()
+                return True
+    except:
+        return False
+
+    return False
 
 @app.route('/<wsname>/<chname>')
 @login_required
@@ -514,6 +524,50 @@ def channel(wsname, chname):
     resp.set_cookie('chname', chname)
     return resp
 
+@app.route('/<wsname>/direct/<peer>')
+@login_required
+def direct(wsname, peer):
+    uname = session['uname']
+
+    a, b = min(uname, peer), max(uname, peer)
+    chname = f'_{a}_{b}'
+
+    q = """
+        select *
+        from channel
+        where chname = %s
+        and wsname = %s
+        """
+
+    with conn.cursor() as cursor:
+        cursor.execute(q, (chname, wsname))
+        data = cursor.fetchone()
+
+    if not data:
+        q = """
+            insert into channel(wsname, chname, owner, chtype)
+            values (%s, %s, %s, %s)
+            """
+        q1 = """
+            insert into chmember(wsname, chname, member)
+            values (%s, %s, %s)
+            """
+        with conn.cursor() as cursor:
+            cursor.execute(q, (wsname, chname, uname, 'direct'))
+            cursor.execute(q1, (wsname, chname, uname))
+            if a != b:
+                cursor.execute(q1, (wsname, chname, peer))
+            conn.commit()
+
+    session['wsname'] = wsname
+    session['chname'] = chname
+
+    resp = make_response(render_template('channel.html'))
+    resp.set_cookie('uname', uname)
+    resp.set_cookie('wsname', wsname)
+    resp.set_cookie('chname', chname)
+    return resp
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -530,14 +584,16 @@ def socket_login_required(f):
 
 @socket.on('connect')
 def on_connection():
-    pass
+    print("connect")
 
 @socket.on('join')
 def on_join(room):
+    print("join", room)
     join_room(room)
 
 @socket.on('leave')
 def on_leave(room):
+    print("leave", room)
     leave_room(room)
 
 @socket.on('disconnect')
@@ -572,6 +628,8 @@ def post_msg(msg):
     chname = msg['chname']
     content = msg['content']
 
+    print("post msg")
+
     q = """
         insert into message(wsname, chname, sender, content)
         values (%s, %s, %s, %s)
@@ -583,6 +641,7 @@ def post_msg(msg):
             conn.commit()
     except pymysql.err.IntegrityError:
         conn.rollback()
+        print("how?")
         return "error"
 
     q = """

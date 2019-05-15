@@ -35,6 +35,8 @@ class App extends React.Component {
         const wsname = this.state.wsname;
         const chname = this.state.chname;
 
+        console.log(wsname+':'+chname);
+
         socket.emit('join', wsname+':'+chname);
 
         socket.emit('get msg', wsname, chname, 0, (data) => {

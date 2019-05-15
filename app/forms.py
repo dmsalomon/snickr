@@ -46,13 +46,6 @@ class WorkspaceForm(FlaskForm):
     ])
 
 class ChannelForm(FlaskForm):
-    wsname = StringField('Workspace', [
-        InputRequired(),
-        Length(min=3, max=32),
-        Regexp(r'^[^\W_]+$',
-            message='Only alphanumeric characters allowed',
-        )
-    ])
     chname = StringField('Channel', [
         InputRequired(),
         Length(min=3, max=32),
@@ -60,21 +53,15 @@ class ChannelForm(FlaskForm):
             message='Only alphabetic characters allowed',
         )
     ])
-    chtype = RadioField('Channel Type', [InputRequired()], choices=[
+    chtype = RadioField('Channel Type', [
+        InputRequired()
+    ], choices=[
         ('public', 'public'),
         ('private', 'private'),
     ])
 
-
-class WorkspaceUserForm(FlaskForm):
+class WorkspaceInviteForm(FlaskForm):
     uname = StringField('Username', [
-        InputRequired(),
-        Length(min=3, max=32),
-        Regexp(r'^[^\W_]+$',
-            message='Only alphanumeric characters allowed',
-        )
-    ])
-    wsname = StringField('Workspace', [
         InputRequired(),
         Length(min=3, max=32),
         Regexp(r'^[^\W_]+$',
@@ -84,7 +71,7 @@ class WorkspaceUserForm(FlaskForm):
     admin = BooleanField('Admin')
     submit = SubmitField('Submit', [
         InputRequired(),
-    ], )
+    ])
 
 class ChannelUserForm(FlaskForm):
     uname = StringField('Username', [
