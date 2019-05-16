@@ -60,7 +60,6 @@ def ctxbar():
             cx = channels(uname, wsname)
             for c in cx:
                 c = c['chname']
-                print(c)
                 links.append(Link(c, f'/{wsname}/{c}'))
             bar.append(Subgroup(wsname, *links))
 
@@ -500,8 +499,6 @@ def workspace(wsname):
     chname = form.chname.data
     chtype = form.chtype.data
 
-    print("probe")
-
     q1 = """
         insert into channel(wsname, chname, owner, chtype)
         values (%s, %s, %s, %s)
@@ -565,7 +562,6 @@ def channel_auth(uname, wsname, chname):
 @login_required
 def channel(wsname, chname):
     uname = session['uname']
-    print('logged in:', uname)
 
     if not channel_auth(uname, wsname, chname):
         return "unauthorized"
@@ -666,21 +662,19 @@ def socket_login_required(f):
 
 @socket.on('connect')
 def on_connection():
-    print("connect")
+    pass
 
 @socket.on('join')
 def on_join(room):
-    print("join", room)
     join_room(room)
 
 @socket.on('leave')
 def on_leave(room):
-    print("leave", room)
     leave_room(room)
 
 @socket.on('disconnect')
 def on_disconnect():
-    print('disconnect')
+    pass
 
 @socket.on('get msg')
 def get_msg(wsname, chname, offset):
@@ -711,8 +705,6 @@ def post_msg(msg):
     chname = msg['chname']
     content = msg['content']
 
-    print("post msg", msg)
-
     q = """
         insert into message(wsname, chname, sender, content)
         values (%s, %s, %s, %s)
@@ -724,7 +716,6 @@ def post_msg(msg):
             conn.commit()
     except pymysql.err.IntegrityError:
         conn.rollback()
-        print("how?")
         return "error"
 
     q = """
