@@ -2,8 +2,69 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import io from 'socket.io-client';
 import Cookies from 'universal-cookie';
+import TimeAgo from 'react-timeago';
 
 const cookies = new Cookies();
+
+class Msg extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            back: '#ffffff',
+        };
+
+        this.onMouseEnter = this.onMouseEnter.bind(this);
+        this.onMouseLeave = this.onMouseLeave.bind(this);
+    }
+
+    onMouseEnter() {
+        this.setState({
+            back: '#eeeeee',
+        });
+    }
+
+    onMouseLeave() {
+        this.setState({
+            back: '#ffffff',
+        });
+    }
+
+    render () {
+        const back = this.state.back;
+
+        const msgStyle = {
+            marginTop: '0px',
+            marginBottom: '8px',
+            padding: '8px',
+            background: back,
+        }
+
+        const dateStyle = {
+            marginLeft: '8px',
+        };
+
+        const m = this.props.msg;
+
+        const date = new Date(m.posted);
+        const datestr = date.toISOString();
+
+
+        return (
+            <div
+                onMouseEnter={this.onMouseEnter}
+                onMouseLeave={this.onMouseLeave}
+                style={msgStyle}
+            >
+                <strong>
+                    {m.sender}
+                </strong>
+                <TimeAgo className="text-muted" style={dateStyle} date={datestr} />
+                <br />
+                {m.content}
+            </div>
+        );
+    }
+}
 
 class App extends React.Component {
     constructor(props) {
@@ -43,7 +104,8 @@ class App extends React.Component {
     }
 
     componentDidMount() {
-        const socket = io('http://127.0.0.1:5000');
+        const url = 'http://' + window.location.hostname + ':5000';
+        const socket = io(url);
         this.setState({
             socket: socket
         });
@@ -115,17 +177,24 @@ class App extends React.Component {
 
     render() {
         const list = this.state.messages;
+        var ch = this.state.chname;
+        const uname = this.state.uname;
+        var def;
 
-        const msgStyle = {
-          marginTop: '10px',
-          marginBottom: '10px',
-          marginLeft: '5%',
+        if (ch[0] == '_') {
+            var names = ch.split('_');
+            if (names[1] == uname)
+                ch = names[2];
+            else
+                ch = names[1];
+            def = "Message " + ch;
+        } else {
+            def = "Message #" + ch;
         }
 
+
         var messages = list.map((m) =>
-            <div className={msgStyle} key={m.msgid}>
-                {m.sender}: {m.content}
-            </div>
+            <Msg msg={m} key={m.msgid} />
         );
 
         if (messages.length == 0)
@@ -138,7 +207,7 @@ class App extends React.Component {
         return (
             <div>
                 <form style={formStyle} onSubmit={this.post}>
-                    <input onChange={this.inputChange} className="form-control" value={this.state.txtinput}/>
+                    <input placeholder={def} onChange={this.inputChange} className="form-control" value={this.state.txtinput}/>
                 </form>
                 {this.state.loaded ? messages : null}
                 {this.state.more

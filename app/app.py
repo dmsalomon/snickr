@@ -14,6 +14,8 @@ from nav import configure_nav
 
 import json
 import random
+import pytz
+import datetime
 
 app = Flask(
     __name__,
@@ -611,6 +613,18 @@ def direct(wsname, peer):
         data = cursor.fetchone()
 
     if not data:
+        q = """
+            select *
+            from wsmember
+            where wsname = %s
+            and uname = %s
+            """
+
+        with conn.cursor() as cursor:
+            cursor.execute(q, (wsname, peer))
+            if not cursor.fetchone():
+                return "unauthorized"
+
         q1 = """
             insert into channel(wsname, chname, owner, chtype)
             values (%s, %s, %s, %s)
@@ -630,7 +644,7 @@ def direct(wsname, peer):
     session['wsname'] = wsname
     session['chname'] = chname
 
-    resp = make_response(render_template('channel.html'))
+    resp = make_response(render_template('channel.html', ws=wsname, ch=peer))
     resp.set_cookie('uname', uname)
     resp.set_cookie('wsname', wsname)
     resp.set_cookie('chname', chname)
@@ -685,6 +699,8 @@ def get_msg(wsname, chname, offset):
         conn.commit()
         cursor.execute(q, (wsname, chname, offset, per))
         data = cursor.fetchall()
+        for msg in data:
+            msg['posted'] = msg['posted'].astimezone(pytz.utc)
 
     return jsonify(data).get_json()
 
@@ -695,7 +711,7 @@ def post_msg(msg):
     chname = msg['chname']
     content = msg['content']
 
-    print("post msg")
+    print("post msg", msg)
 
     q = """
         insert into message(wsname, chname, sender, content)
@@ -723,6 +739,7 @@ def post_msg(msg):
         return "error"
 
     msg['msgid'] = data['id']
+    msg['posted'] = datetime.datetime.now().astimezone(pytz.utc)
 
     room = f'{wsname}:{chname}'
     emit('new msg', jsonify(msg).get_json(), room=room)
