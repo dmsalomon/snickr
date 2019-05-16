@@ -97,6 +97,7 @@ dd {
       {% endfor %}
     {% endwith %}
     <hr>
+    {% set isadmin = u['admin'] %}
     {% for u in us %}
       <div class="ch-item">
         {% if u['admin'] %}
@@ -107,6 +108,13 @@ dd {
         <a href="/{{ws}}/direct/{{u['uname']}}">
           {{u['uname']}}
         </a>
+        {% if not u['admin'] and isadmin %}
+          <span style="float: right">
+            <a href="/{{ws}}/admin?u={{u['uname']}}">
+              make admin
+            </a>
+          </span>
+          {% endif %}
       </div>
     {% endfor %}
     {% if u['admin'] %}

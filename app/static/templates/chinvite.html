@@ -1,0 +1,47 @@
+
+{%- extends "base.html" %}
+{% import "bootstrap/utils.html" as utils %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Admin
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+<style>
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+  <div class="col-sm-offset-3 col-sm-6">
+    <div class="page-header">
+      <h3>
+        Invite a member to
+        <span class="text-primary">{{ch}}</span>
+      </h3>
+    </div>
+    <div class="well form-well">
+      {{wtf.quick_form(form)}}
+    </div>
+    {% with messages = get_flashed_messages(with_categories=True) %}
+      {% for c, e in messages %}
+        <div class="alert alert-{{c}} fade in">
+          <a href='#' class="close" data-dismiss="alert" aria-label="close">&times;</a>
+          {% if c == "danger" %}
+            <span class="glyphicon glyphicon-exclamation-sign">
+            </span>
+          {% else %}
+            <span class="glyphicon glyphicon-ok-sign"></span>
+          {% endif %}
+          {{e}}
+        </div>
+      {% endfor %}
+    {% endwith %}
+    <a href="/{{ws}}/{{ch}}">back</a>
+  </div>
+</div>
+
+{%- endblock %}

@@ -68,31 +68,16 @@ class WorkspaceInviteForm(FlaskForm):
             message='Only alphanumeric characters allowed',
         )
     ])
-    admin = BooleanField('Admin')
     submit = SubmitField('Submit', [
         InputRequired(),
     ])
 
-class ChannelUserForm(FlaskForm):
+class ChannelInviteForm(FlaskForm):
     uname = StringField('Username', [
         InputRequired(),
         Length(min=3, max=32),
         Regexp(r'^[^\W_]+$',
             message='Only alphanumeric characters allowed',
-        )
-    ])
-    wsname = StringField('Workspace', [
-        InputRequired(),
-        Length(min=3, max=32),
-        Regexp(r'^[^\W_]+$',
-            message='Only alphanumeric characters allowed',
-        )
-    ])
-    chname = StringField('Channel', [
-        InputRequired(),
-        Length(min=3, max=32),
-        Regexp(r'^[^\W\d_]+$',
-            message='Only alphabetic characters allowed',
         )
     ])
     submit = SubmitField('Submit', [

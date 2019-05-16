@@ -85,6 +85,32 @@ dd {
       {% endfor %}
     {% endwith %}
   </div>
+  {% if invws or invch %}
+    <div class="col-sm-3">
+      <div class="page-header">
+        <h2>
+          Invitations
+        </h2>
+      </div>
+      {% for i in invws %}
+        <div class="ws-item">
+          {% set w = i['wsname'] %}
+          {{i['inviter']}} invites you to workspace
+          <a href="/{{w}}/accept">
+            {{w}}
+          </a>
+        </div>
+      {% endfor %}
+      {% for i in invch %}
+        <div class="ws-item">
+            {{i['owner']}} invites you to private channel
+            <a href="/{{i['wsname']}}/{{i['chname']}}/accept">
+              {{i['chname']}}
+            </a>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
 </div>
 
 {%- endblock %}
