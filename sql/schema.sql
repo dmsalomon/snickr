@@ -54,7 +54,6 @@ create table wsinvitation (
 	inviter varchar(64) not null,
 	invited timestamp not null default current_timestamp,
 	primary key(wsname, invitee),
-	foreign key(wsname) references workspace(wsname) on delete cascade,
 	foreign key(invitee) references user(uname) on delete cascade,
 	foreign key(wsname, inviter) references wsmember(wsname, uname) on delete cascade
 );

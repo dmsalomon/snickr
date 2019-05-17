@@ -10,6 +10,7 @@
 \usepackage{booktabs}
 \usepackage{color}
 \usepackage{xspace}
+\usepackage{longtable}
 % \usepackage[normalem]{ulem}
 
 \usepackage[utf8]{inputenc}
@@ -98,7 +99,7 @@
 
 \section{Introduction}
 
-In this report I will describe the database design for a web-based collaboration app \textit{snickr}, which similar to Slack, is comprised of workspaces and channels in which users can communicate. First, I will outline the relational schema and its corresponding ER diagram. I will also give an equivalent database schema for the MySQL DBMS that implements this design. Afterward, I will show example queries on the schema using test data.
+In this report I will describe the database design for a web-based collaboration app \textit{snickr}, which similar to Slack, is comprised of workspaces and channels in which users can communicate. First, I will outline the relational schema and its corresponding ER diagram. I will also give an equivalent database schema for MariaDB (an open-source variant of MySQL) that implements this design. Afterward, I will show example queries on the schema using test data. Finally, I will describe the web application that uses this database on the backend to implement the communication system.
 
 \section{Relational Schema}
 {
@@ -109,7 +110,8 @@ Workspace (\underline{wsname}, description) \\
 Wsmember(\underline{wsname}, \underline{uname}, admin) \\
 Channel(\underline{chname}, \underline{wsname}, owner, chtype) \\
 Chmember(\underline{chname}, \underline{wsname}, \underline{member}) \\
-Invitation(\underline{chname}, \underline{wsname}, \underline{invitee}) \\
+WSInvitation(\underline{wsname}, \underline{invitee}, inviter) \\
+CHInvitation(\underline{wsname}, \underline{chname}, \underline{invitee}) \\
 Message(\underline{msgid}, chname, wsname, sender, content)
 
 \noindent
@@ -121,8 +123,10 @@ Wsmember(wsname)                & references & Workspace(wsname) \\
 Channel(wsname, owner)          & references & Wsmember(wsname, uname) \\
 Chmember(chname, wsname)        & references & Channel(chname, wsname) \\
 Chmember(wsname, owner)         & references & Wsmember(wsname, uname) \\
-Invitation(chname, wsname)      & references & Channel(chname, wsname) \\
-Invitation(wsname, invitee)     & references & Wsmember(wsname, uname) \\
+WSInvitation(invitee)           & references & User(uname) \\
+WSInvitation(wsname, inviter)   & references & Wsmember(wsname, uname) \\
+CHInvitation(wsname, chname)    & references & Channel(wsname, chname) \\
+CHInvitation(wsname, invitee)   & references & Wsmember(wsname, uname) \\
 Message(wsname, chname, sender) & references & Chmember(wsname, chname, member) \\
 \end{tabular}
 }
@@ -133,7 +137,7 @@ Instead of using a globally unique channel id, each channel is uniquely identifi
 
 I chose to make the \texttt{msgid} globally unique, as opposed to only unique in a channel, since it shortens the primary key, and doesn't limit the power of the database to make efficient integrity checks.
 
-Additionally I have chosen to model the direct channel in the same way that the public and private channels are modeled. This will rely on the web application to ensure that direct channels only have 2 members at all times. The name of the direct channel can be some text encoding of the 2 usernames containing characters that are not allowed in regular channel names, which will ensure that the chname is available. This could be achieved more rigorously by using a separate modeling, but would increase the complexity and presents a design tradeoff. I chose this approach because the model stil has enough expressive power, without the added complexity.
+Additionally I have chosen to model the direct channel in the same way that the public and private channels are modeled. This will rely on the web application to ensure that direct channels only have 2 members at all times. The name of the direct channel can be some text encoding of the 2 usernames containing characters that are not allowed in regular channel names, which will ensure that the chname is available. This could be achieved more rigorously by using a separate modeling, but would increase the complexity and presents a design tradeoff. I chose this approach because the model still has enough expressive power, without the added complexity.
 
 \section{ER Diagram}
 
@@ -148,9 +152,9 @@ Additionally I have chosen to model the direct channel in the same way that the 
 
 There are a few notes to make on this ER diagram. Firstly, while this ER diagram suggests that the primary key for Channel should be (\texttt{uname}, \texttt{wsname}, \texttt{chname}), in reality the primary key is (\texttt{wsname}, \texttt{chname}) since we want to enforce that a channel name is unique to a workspace. That said, the channel table does have a foreign key for (\texttt{uname}, \texttt{wsname}) referencing \texttt{Wsmember} (\texttt{uname}, \texttt{wsname}) since we want to enforce that a user can only create a channel for workspaces that \ze is a member.
 
-\section{MySQL Schema}
+\section{MariaDB Schema}
 
-\Cref{lst:schema} below shows the MySQL schema for the database design. It follows directly from the Relational Schema.
+\Cref{lst:schema} below shows the MariaDB schema for the database design. It follows directly from the Relational Schema.
 
 \lstinputlisting[caption=Database Schema,label=lst:schema]{../sql/schema.sql}
 
@@ -158,6 +162,7 @@ I decided to use \texttt{enum} for the \texttt{chtype} field in the \texttt{chan
 
 I chose varchar(64) as the length for the name fields, but this could be shorter or longer as needed in practice.
 
+I have used \texttt{on delete cascade} for all foreign key constraints, since for testing purposes it is convenient to remove all orphaned data. In practice, it may be more prudent to keep the orphaned data for other uses, depending on the needs of the organization using the system.
 
 \section{Test Dataset}
 
@@ -312,7 +317,7 @@ job & general & sam  & That is perpendicular. \\
 job & managers & george  & What is happening at the staff meeting? \\
 \midrule
 baseball & general & sam & When is the game? \\
-basenall & general & trisha & Next Sunday! \\
+baseball & general & trisha & Next Sunday! \\
 \midrule
 baseball & pitchers & trisha & Are you pitching on Sunday? \\
 baseball & pitchers & har & I will pitch perpendicular \\
@@ -422,7 +427,7 @@ where sender = 'george';
 \end{verbatim}
 
 \item
-For a particular, list all messages that are accessible to this user and that contain the keyword “perpendicular” in the body of the message.
+For a particular user, list all messages that are accessible to this user and that contain the keyword “perpendicular” in the body of the message.
 \begin{lstlisting}
 select msgid, content
 from message join chmember using(wsname, chname)
@@ -477,5 +482,114 @@ and content like '%perpendicular%';
 \end{lstlisting}
 
 \end{enumerate}
+
+\section{Web App}
+
+The web application is built in python using the \textbf{flask} platform. As mentioned previously, the database on the back-end is \textbf{MariaDB}, and I use the \textbf{pymysql} library to communicate between flask and MariaDB. On the front-end, I am using jinja templates, Bootstrap CSS, as well as React for the real-time chat application itself.
+
+\subsection{Server}
+
+\noindent The url endpoints for the server are:
+
+\begin{itemize}
+
+\item
+  /login
+
+  GET: Fetch login form
+
+  POST: Submit login form and authenticate user. Redirects the user to / if successfully authenticated
+
+\item
+/register
+
+  GET: Fetch the registration form
+
+  POST: Submit the registration form and create user
+
+\item
+/
+
+  GET: Fetch all workspaces and pending invitations
+
+  POST: Create a workspace
+
+\item
+/\textless workspace \textgreater
+
+  GET: Fetch all channels available to user, and all members in workspace
+
+  POST: Create a new channel in workspace
+
+\item
+/\textless~workspace~\textgreater~/admin?u=\textless~user~\textgreater
+
+  GET: Make user an admin in workspace
+
+\item
+/\textless workspace \textgreater /invite
+
+  GET: Fetch the invite form to workspace
+
+  POST: Submit the invite form, create the workspace invitation
+
+\item
+/\textless~workspace~\textgreater~/~\textless~channel~\textgreater
+
+  GET: Fetch the React app to begin chatting in channel
+
+\item
+/\textless~workspace~\textgreater~/~\textless~channel~\textgreater/invite
+
+  POST: invite a user to (private) channel
+
+\item
+/\textless~workspace~\textgreater~/direct/\textless~user\textgreater
+
+  GET: Fetch the React app to chat in a direct channel with user
+
+\item
+/logout
+
+  GET: Logout the user
+
+\end{itemize}
+
+In general the user does not need to worry about all these details, since the web layout is fairly intuitive. The correct links are generated and labeled properly, so that the user does not need to type in any urls manually.
+
+\Cref{fig:workspaces} shows the home screen for a logged in user. There is a list of workspaces, along with their descriptions. In addition, there is a form for the user to create a new workspace. Any pending invitations appear in the user's sidebar.
+
+\begin{figure}[!ht]
+       \centering
+       \includegraphics[width=0.9\linewidth]{workspaces}
+       \caption{Home screen for a user, showing all their workspaces and invitations.}
+       \label{fig:workspaces}
+\end{figure}
+
+\Cref{fig:channels} shows the layout for a user once they have entered a workspace. The public and private channels are listed first, along with an eye icon or lock icon, indicating that the channel is public or private respectively. There is also a form for a user to create additional channels. Below is the list of all users in the workspace, along with an chess piece icon indicating whether or not that user is an admin (king for admins, and pawn for regular users). Clicking on a username will proceed to open the direct channel to communicate with that user. If the logged in user is an admin, they will also have the ability to promote any existing user to admin. The last item is a link to a page containing a form that allows an admin to invite more users to the workspace, which is only available to admins, of course.
+
+
+\begin{figure}[!ht]
+       \centering
+       \includegraphics[width=0.9\linewidth]{channels}
+       \caption{A page showing all the channels and users in workspace job.}
+       \label{fig:channels}
+\end{figure}
+
+\subsection{Chat Application}
+
+The chat application is run on the client side, and uses a websocket connection to the server to receive messages in real-time. This allows the client to send and receive messages without having to reload the webpage. Websocket events handlers on the server access the database the retrieve the requested messages, and send back the results in JSON to the chat app. \Cref{fig:chatting} shows the interface for the chat application.
+
+\begin{figure}[!ht]
+       \centering
+       \includegraphics[width=0.9\linewidth]{chatting}
+       \caption{Chatting in a channel with the React app.}
+       \label{fig:chatting}
+\end{figure}
+
+\subsection{Security}
+Before a user is able to access any endpoint on the server, the user must first authenticate themselves with the server. This creates a server-side session which is checked on every request. If a user tries to access a workspace or channel that they are not a member of, the user will return an HTTP 404 error indicating to the client that the resource does not exist.
+
+SQL injection is prevented by using prepared statements with \textbf{pymysql}. Additionally, cross-site scripting (XSS) is not an issue, since the only user input that is allowed to have special characters is messages, and the messages are rendered with React which automatically prevents XSS.
 
 \end{document}

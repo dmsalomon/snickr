@@ -132,7 +132,7 @@ def index():
     wsx = workspaces(uname)
     form = WorkspaceForm()
 
-    if request.method == 'GET':
+    if request.method == 'GET' or not form.validate_on_submit():
         q1 = """
             select *
             from wsinvitation
@@ -151,7 +151,6 @@ def index():
             cursor.execute(q2, (uname))
             invch = cursor.fetchall()
 
-    if request.method == 'GET' or not form.validate_on_submit():
         return render_template('home.html',
             invws=invws,
             invch=invch,
@@ -298,7 +297,7 @@ def wsinvite(wsname):
                 raise Exception
             cursor.execute(q2, (wsname, invitee, uname))
             conn.commit()
-        flash("nice!!", "success")
+        flash(f"{invitee} is invited!", "success")
     except:
         conn.rollback()
         err = err or f'could not invite {invitee} to {wsname}'
@@ -365,7 +364,7 @@ def chinvite(wsname, chname):
                 raise Exception
             cursor.execute(q3, (wsname, chname, invitee))
             conn.commit()
-        flash("nice!!", "success")
+        flash(f"{invitee} was invited!", "success")
     except:
         conn.rollback()
         err = err or f'could not invite {invitee} to {chname}'
@@ -519,7 +518,7 @@ def workspace(wsname):
         flash(error, "danger")
         conn.rollback()
 
-    return redirect('f/{wsname}')
+    return redirect(f'/{wsname}')
 
 def channel_auth(uname, wsname, chname):
     q1 = """
@@ -570,7 +569,7 @@ def channel(wsname, chname):
     session['chname'] = chname
 
     q = """
-        select owner
+        select owner, chtype
         from channel
         where wsname = %s
         and chname = %s
@@ -580,8 +579,9 @@ def channel(wsname, chname):
         cursor.execute(q, (wsname, chname))
         data = cursor.fetchone()
         owner = data['owner']
+        chtype = data['chtype']
 
-    o = owner == uname
+    o = owner == uname and chtype == 'private'
 
     resp = make_response(render_template('channel.html', o=o, ws=wsname, ch=chname))
     resp.set_cookie('uname', uname)
